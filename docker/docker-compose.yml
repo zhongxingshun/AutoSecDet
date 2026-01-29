@@ -1,0 +1,140 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: autosecdet-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: autosecdet
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d autosecdet"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - autosecdet-network
+
+  # Redis Cache and Message Broker
+  redis:
+    image: redis:7-alpine
+    container_name: autosecdet-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - autosecdet-network
+
+  # Backend API Service
+  backend:
+    build:
+      context: ../backend
+      dockerfile: ../docker/Dockerfile.backend
+    container_name: autosecdet-backend
+    restart: unless-stopped
+    environment:
+      - APP_NAME=AutoSecDet
+      - DEBUG=true
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/autosecdet
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-secret-key-change-in-production}
+      - SCRIPTS_DIR=/data/scripts
+      - LOGS_DIR=/data/logs
+      - REPORTS_DIR=/data/reports
+    ports:
+      - "8001:8000"
+    volumes:
+      - ../backend:/app
+      - scripts_data:/data/scripts
+      - logs_data:/data/logs
+      - reports_data:/data/reports
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - autosecdet-network
+
+  # Celery Worker
+  celery-worker:
+    build:
+      context: ../backend
+      dockerfile: ../docker/Dockerfile.backend
+    container_name: autosecdet-celery-worker
+    restart: unless-stopped
+    command: celery -A celery_worker.celery_app worker --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/autosecdet
+      - REDIS_URL=redis://redis:6379/0
+      - SCRIPTS_DIR=/data/scripts
+      - LOGS_DIR=/data/logs
+      - REPORTS_DIR=/data/reports
+    volumes:
+      - ../backend:/app
+      - scripts_data:/data/scripts
+      - logs_data:/data/logs
+      - reports_data:/data/reports
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - autosecdet-network
+
+  # Celery Beat Scheduler
+  celery-beat:
+    build:
+      context: ../backend
+      dockerfile: ../docker/Dockerfile.backend
+    container_name: autosecdet-celery-beat
+    restart: unless-stopped
+    command: celery -A celery_worker.celery_app beat --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/autosecdet
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ../backend:/app
+    depends_on:
+      - celery-worker
+    networks:
+      - autosecdet-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  scripts_data:
+    driver: local
+  logs_data:
+    driver: local
+  reports_data:
+    driver: local
+
+networks:
+  autosecdet-network:
+    driver: bridge
