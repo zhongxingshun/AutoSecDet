@@ -84,6 +84,9 @@ celerybeat.pid
 # Windsurf
 .windsurf/
 
+# Scripts (暂不提交)
+backend/scripts/
+
 # Misc
 *.bak
 *.tmp
