@@ -31,6 +31,7 @@ def task_to_response(task, db: Session) -> TaskResponse:
     return TaskResponse(
         id=task.id,
         target_ip=task.target_ip,
+        description=task.description,
         user_id=task.user_id,
         username=username,
         status=task.status,
@@ -283,3 +284,50 @@ async def retry_task(
     execute_task.delay(task_id)
     
     return {"message": f"Retrying {retry_count} failed cases", "retry_count": retry_count}
+
+
+@router.post("/{task_id}/rerun")
+async def rerun_task(
+    task_id: int,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    """
+    Re-run all cases in a completed/stopped/error task.
+    """
+    from app.services.execution_service import ExecutionService
+    
+    task_service = TaskService(db)
+    execution_service = ExecutionService(db)
+    audit_service = AuditService(db)
+    
+    task = task_service.get_by_id(task_id)
+    if task is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found",
+        )
+    
+    if task.status not in ("completed", "error", "stopped"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot rerun task with status: {task.status}",
+        )
+    
+    # Reset all results to pending
+    reset_count = execution_service.reset_all_results(task_id)
+    
+    # Log audit
+    audit_service.log(
+        action="update",
+        user_id=current_user.id,
+        username=current_user.username,
+        resource_type="task",
+        resource_id=task_id,
+        details={"action": "rerun", "reset_count": reset_count},
+    )
+    
+    # Trigger async execution
+    execute_task.delay(task_id)
+    
+    return {"message": f"Re-running {reset_count} cases", "reset_count": reset_count}

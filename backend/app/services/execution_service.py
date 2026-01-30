@@ -314,6 +314,48 @@ class ExecutionService:
         logger.info(f"Task {task_id}: {retry_count} results queued for retry")
         return retry_count
     
+    def reset_all_results(self, task_id: int) -> int:
+        """
+        Reset all results for a task to pending status for re-execution.
+        
+        Args:
+            task_id: Task ID
+            
+        Returns:
+            Number of results reset
+        """
+        # Reset all results to pending
+        reset_count = (
+            self.db.query(TaskResult)
+            .filter(TaskResult.task_id == task_id)
+            .update(
+                {
+                    "status": ResultStatus.PENDING,
+                    "start_time": None,
+                    "end_time": None,
+                    "error_message": None,
+                    "log_path": None,
+                },
+                synchronize_session=False,
+            )
+        )
+        
+        # Reset task status and counters
+        task = self.db.query(Task).filter(Task.id == task_id).first()
+        if task:
+            task.status = TaskStatus.PENDING
+            task.start_time = None
+            task.end_time = None
+            task.completed_cases = 0
+            task.passed_count = 0
+            task.failed_count = 0
+            task.error_count = 0
+        
+        self.db.commit()
+        
+        logger.info(f"Task {task_id}: {reset_count} results reset for re-execution")
+        return reset_count
+    
     def mark_task_stopped(self, task_id: int) -> Optional[Task]:
         """
         Mark a task as stopped and cancel pending results.

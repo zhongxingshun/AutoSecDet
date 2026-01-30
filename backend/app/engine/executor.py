@@ -121,14 +121,42 @@ class ScriptExecutor:
                 log_file.write(f"Elapsed: {elapsed:.2f}s\n")
                 log_file.write(f"Return Code: {return_code}\n")
             
+            # Read log file to get output for error message
+            output_summary = None
+            try:
+                with open(log_path, "r") as f:
+                    content = f.read()
+                    # The log format is:
+                    # === Script Execution Log ===
+                    # ... header info ...
+                    # ======================================== (40 =)
+                    # ... script output (may contain more = separators) ...
+                    # ======================================== (40 =)
+                    # End Time: ...
+                    
+                    # Find the content between the first and last 40-char separators
+                    separator = '=' * 40
+                    parts = content.split(separator)
+                    
+                    if len(parts) >= 3:
+                        # parts[0] = header, parts[1:-1] = script output parts, parts[-1] = footer
+                        # Join all middle parts back together (they were split by separators in script output)
+                        script_output = separator.join(parts[1:-1]).strip()
+                        if script_output:
+                            # Limit to 2000 chars for display
+                            output_summary = script_output[:2000] if len(script_output) > 2000 else script_output
+            except Exception:
+                pass
+            
             # Interpret return code
             # Convention: 0 = pass, 1 = fail (vulnerability found), other = error
             if return_code == 0:
                 return "pass", None, str(log_path)
             elif return_code == 1:
-                return "fail", None, str(log_path)
+                # Fail means security issue found - include output summary
+                return "fail", output_summary, str(log_path)
             else:
-                return "error", f"Script exited with code {return_code}", str(log_path)
+                return "error", f"Script exited with code {return_code}. {output_summary or ''}", str(log_path)
                 
         except Exception as e:
             logger.exception(f"Script execution failed: {e}")

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Play, Square, RotateCcw, Eye, ChevronDown, ChevronRight } from 'lucide-react'
+import { Plus, Play, Square, RotateCcw, Eye, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react'
 import { tasksApi, casesApi, categoriesApi } from '@/lib/api'
 import { cn, formatDate, getStatusColor } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -12,6 +12,7 @@ export default function TasksPage() {
   const [page, setPage] = useState(1)
   const [showCreate, setShowCreate] = useState(false)
   const [targetIp, setTargetIp] = useState('')
+  const [description, setDescription] = useState('')
   const [selectedCaseIds, setSelectedCaseIds] = useState<number[]>([])
   const [selectAll, setSelectAll] = useState(true)
   const [expandedCategories, setExpandedCategories] = useState<number[]>([])
@@ -19,7 +20,8 @@ export default function TasksPage() {
   const { data: tasksData, isLoading } = useQuery({
     queryKey: ['tasks', page],
     queryFn: () => tasksApi.list({ page, page_size: 20 }),
-    refetchInterval: 5000, // Auto refresh every 5s
+    refetchInterval: 3000, // Auto refresh every 3s
+    refetchIntervalInBackground: true, // Continue refreshing in background
   })
 
   const { data: casesData } = useQuery({
@@ -81,7 +83,7 @@ export default function TasksPage() {
   }
 
   const createMutation = useMutation({
-    mutationFn: (data: { target_ip: string; case_ids?: number[] }) => tasksApi.create(data),
+    mutationFn: (data: { target_ip: string; description?: string; case_ids?: number[] }) => tasksApi.create(data),
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       setShowCreate(false)
@@ -107,6 +109,17 @@ export default function TasksPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       toast.success('重试已启动')
+    },
+  })
+
+  const rerunMutation = useMutation({
+    mutationFn: (id: number) => tasksApi.rerun(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      toast.success('任务已重新执行')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || '重新执行失败')
     },
   })
 
@@ -163,6 +176,17 @@ export default function TasksPage() {
               {targetIp && !validateIp(targetIp) && (
                 <p className="mt-1 text-sm text-red-600">请输入有效的 IPv4 地址</p>
               )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">备注说明（可选）</label>
+              <input
+                type="text"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                placeholder="例如: C313W, 313.30.15.168 版本"
+                maxLength={500}
+              />
             </div>
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -291,6 +315,7 @@ export default function TasksPage() {
               <button
                 onClick={() => createMutation.mutate({ 
                 target_ip: targetIp,
+                description: description || undefined,
                 case_ids: selectAll ? undefined : selectedCaseIds 
               })}
                 disabled={!validateIp(targetIp) || createMutation.isPending || (!selectAll && selectedCaseIds.length === 0)}
@@ -300,7 +325,7 @@ export default function TasksPage() {
                 开始检测
               </button>
               <button
-                onClick={() => { setShowCreate(false); setTargetIp(''); setSelectedCaseIds([]); setSelectAll(true) }}
+                onClick={() => { setShowCreate(false); setTargetIp(''); setDescription(''); setSelectedCaseIds([]); setSelectAll(true) }}
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 取消
@@ -387,6 +412,15 @@ export default function TasksPage() {
                           title="重试失败用例"
                         >
                           <RotateCcw className="h-4 w-4" />
+                        </button>
+                      )}
+                      {(task.status === 'completed' || task.status === 'error' || task.status === 'stopped') && (
+                        <button
+                          onClick={() => rerunMutation.mutate(task.id)}
+                          className="p-2 text-gray-500 hover:text-green-600 hover:bg-gray-100 rounded"
+                          title="重新执行"
+                        >
+                          <RefreshCw className="h-4 w-4" />
                         </button>
                       )}
                     </div>

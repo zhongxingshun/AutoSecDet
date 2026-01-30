@@ -32,12 +32,6 @@ celery_app.conf.update(
     # Result backend settings
     result_expires=3600,  # 1 hour
     
-    # Task routing
-    task_routes={
-        "app.tasks.executor.*": {"queue": "execution"},
-        "app.tasks.cleanup.*": {"queue": "cleanup"},
-    },
-    
     # Beat schedule for periodic tasks
     beat_schedule={
         # Clean expired logs daily at 3:00 AM UTC

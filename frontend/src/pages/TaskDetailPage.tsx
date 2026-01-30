@@ -1,8 +1,9 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Square, RotateCcw, Download, FileJson, FileText } from 'lucide-react'
+import { ArrowLeft, Square, RotateCcw, FileJson, FileText, X, Eye } from 'lucide-react'
 import { tasksApi, reportsApi } from '@/lib/api'
-import { cn, formatDate, getStatusColor, getRiskLevelColor } from '@/lib/utils'
+import { cn, getStatusColor, getRiskLevelColor } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 export default function TaskDetailPage() {
@@ -10,13 +11,14 @@ export default function TaskDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const taskId = parseInt(id || '0')
+  const [selectedResult, setSelectedResult] = useState<any>(null)
 
   const { data: taskData, isLoading } = useQuery({
     queryKey: ['task', taskId],
     queryFn: () => tasksApi.get(taskId),
     enabled: taskId > 0,
-    refetchInterval: (data) => {
-      const status = data?.data?.status
+    refetchInterval: (query) => {
+      const status = query.state.data?.data?.status
       return status === 'running' || status === 'pending' ? 3000 : false
     },
   })
@@ -226,13 +228,75 @@ export default function TaskDetailPage() {
                       {getStatusText(r.status)}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">{r.error_message || '-'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">
+                    {r.error_message ? (
+                      <button
+                        onClick={() => setSelectedResult(r)}
+                        className="flex items-center gap-1 text-primary-600 hover:text-primary-700 hover:underline"
+                      >
+                        <Eye className="h-4 w-4" />
+                        查看详情
+                      </button>
+                    ) : '-'}
+                  </td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
+
+      {/* Detail Modal */}
+      {selectedResult && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">{selectedResult.case_name}</h3>
+                <p className="text-sm text-gray-500">{selectedResult.category_name}</p>
+              </div>
+              <button
+                onClick={() => setSelectedResult(null)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto flex-1">
+              <div className="flex items-center gap-4 mb-4">
+                <div>
+                  <span className="text-sm text-gray-500">状态：</span>
+                  <span className={cn('ml-2 px-2 py-1 text-xs font-medium rounded', getStatusColor(selectedResult.status))}>
+                    {getStatusText(selectedResult.status)}
+                  </span>
+                </div>
+                {selectedResult.risk_level && (
+                  <div>
+                    <span className="text-sm text-gray-500">风险等级：</span>
+                    <span className={cn('ml-2 px-2 py-1 text-xs font-medium rounded', getRiskLevelColor(selectedResult.risk_level))}>
+                      {selectedResult.risk_level === 'high' ? '高' : selectedResult.risk_level === 'medium' ? '中' : '低'}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">检测结果详情：</h4>
+                <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded-lg border overflow-x-auto">
+                  {selectedResult.error_message || '无详细信息'}
+                </pre>
+              </div>
+            </div>
+            <div className="p-4 border-t flex justify-end">
+              <button
+                onClick={() => setSelectedResult(null)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

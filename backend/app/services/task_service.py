@@ -86,6 +86,7 @@ class TaskService:
         # Create task
         task = Task(
             target_ip=task_data.target_ip,
+            description=task_data.description,
             user_id=user_id,
             status="pending",
             total_cases=len(cases),

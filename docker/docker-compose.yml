@@ -61,7 +61,7 @@ services:
       - "8001:8000"
     volumes:
       - ../backend:/app
-      - scripts_data:/data/scripts
+      - ../backend/scripts:/data/scripts
       - logs_data:/data/logs
       - reports_data:/data/reports
     depends_on:
@@ -94,7 +94,7 @@ services:
       - REPORTS_DIR=/data/reports
     volumes:
       - ../backend:/app
-      - scripts_data:/data/scripts
+      - ../backend/scripts:/data/scripts
       - logs_data:/data/logs
       - reports_data:/data/reports
     depends_on:
@@ -127,8 +127,6 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
-    driver: local
-  scripts_data:
     driver: local
   logs_data:
     driver: local

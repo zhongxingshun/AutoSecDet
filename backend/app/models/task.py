@@ -1,7 +1,7 @@
 """
 Task model for detection tasks.
 """
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -14,6 +14,7 @@ class Task(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     target_ip = Column(String(15), nullable=False, index=True)
+    description = Column(Text, nullable=True)  # 备注说明（版本、机型等）
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     status = Column(String(20), nullable=False, default="pending", index=True)
     # Status: 'pending' | 'running' | 'completed' | 'stopped' | 'error'

@@ -101,6 +101,7 @@ class ReportService:
             "task": {
                 "id": task.id,
                 "target_ip": task.target_ip,
+                "description": task.description,
                 "status": task.status,
                 "total_cases": task.total_cases,
                 "completed_cases": task.completed_cases,
@@ -224,9 +225,10 @@ class ReportService:
         h1 {{ color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }}
         h2 {{ color: #555; margin-top: 30px; }}
         .summary {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 20px 0; }}
-        .summary-card {{ background: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; }}
-        .summary-card .value {{ font-size: 2em; font-weight: bold; color: #007bff; }}
+        .summary-card {{ background: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; min-width: 0; }}
+        .summary-card .value {{ font-size: 2em; font-weight: bold; color: #007bff; word-break: break-all; overflow-wrap: break-word; }}
         .summary-card .label {{ color: #666; margin-top: 5px; }}
+        .summary-card .description {{ color: #888; font-size: 0.9em; margin-top: 8px; font-weight: normal; }}
         table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
         th, td {{ padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }}
         th {{ background: #f8f9fa; font-weight: 600; }}
@@ -245,6 +247,7 @@ class ReportService:
             <div class="summary-card">
                 <div class="value">{task['target_ip']}</div>
                 <div class="label">目标 IP</div>
+                {f'<div class="description">{task["description"]}</div>' if task.get('description') else ''}
             </div>
             <div class="summary-card">
                 <div class="value">{task['total_cases']}</div>

@@ -24,6 +24,7 @@ class TaskBase(BaseModel):
 
 class TaskCreate(TaskBase):
     """Schema for creating a new task."""
+    description: Optional[str] = Field(None, max_length=500, description="Task description/notes (e.g., version, device model)")
     case_ids: Optional[List[int]] = Field(None, description="Specific case IDs to run. If empty, runs all enabled cases.")
 
 
@@ -31,6 +32,7 @@ class TaskResponse(BaseModel):
     """Schema for task response."""
     id: int
     target_ip: str
+    description: Optional[str] = None
     user_id: int
     username: Optional[str] = None
     status: str
