@@ -40,6 +40,10 @@ docker-compose ps
 echo -e "\n${GREEN}Running database migrations...${NC}"
 docker-compose exec -T backend alembic upgrade head || echo -e "${YELLOW}Migration may have already been applied${NC}"
 
+# Seed default data (admin / categories / cases) - idempotent
+echo -e "\n${GREEN}Seeding default data...${NC}"
+docker-compose exec -T backend python -m app.db.seed || echo -e "${YELLOW}Seeding skipped or already applied${NC}"
+
 echo -e "\n${GREEN}========================================${NC}"
 echo -e "${GREEN}  AutoSecDet is now running!${NC}"
 echo -e "${GREEN}========================================${NC}"

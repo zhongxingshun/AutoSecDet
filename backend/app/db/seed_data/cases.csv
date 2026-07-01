@@ -1,0 +1,105 @@
+name,category_name,risk_level,description,fix_suggestion,script_path,is_enabled
+首次登录强制修改密码,身份认证,high,"检测设备在首次使用默认密码登录后，是否强制要求用户修改密码。
+
+测试流程:
+1. 使用初始密码登录
+2. 检测密码修改对话框是否出现
+3. 修改为新密码
+4. 忽略密保问题
+5. 退出登录
+6. 使用新密码重新登录验证",,browser_security/checks/password_change_check.py,t
+Session/Token长度检测,身份认证,medium,"检测登录后的 Session ID 或 Token 是否满足安全长度要求。
+
+安全要求:
+- Session/Token 长度需要大于等于 32 字节
+- OWASP 建议至少 128 位（16 字节），推荐 256 位（32 字节）
+- 足够的长度可以防止暴力破解攻击",,browser_security/checks/session_token_length_check.py,t
+摄像头接口无鉴权访问检测,访问控制,high,"检测摄像头相关接口是否存在无鉴权访问漏洞。
+
+检测接口:
+- http://ip:8080/video.cgi
+- http://ip:8080/picture.cgi
+- http://ip:8080/jpeg.cgi
+- https://ip:8081/video.cgi
+- https://ip:8081/picture.cgi
+- https://ip:8081/jpeg.cgi
+
+要求: 所有接口在未登录状态下都不能访问",,browser_security/checks/camera_unauth_check.py,t
+设备重启/恢复出厂无鉴权操作检测,访问控制,high,"检测设备重启和恢复出厂接口是否存在无鉴权访问漏洞。
+
+检测接口:
+- http://IP/fcgi/do?action=Reboot
+- https://IP/fcgi/do?action=Reboot
+- http://IP/fcgi/do?action=Reset
+- https://IP/fcgi/do?action=Reset
+- https://IP/fcgi/do?id=6&id=1&Operation=GetDivContent&DivName=divReboot
+
+要求: 所有敏感操作接口在未登录状态下都不能执行",,browser_security/checks/device_control_unauth_check.py,t
+Cookie敏感信息检测,数据安全,high,"检测登录后的 Cookie 是否包含敏感信息（如用户名、密码）。
+
+检测项目:
+1. Cookie 名称是否包含敏感词（password, passwd, secret 等）
+2. Cookie 值是否包含明文用户名
+3. Cookie 值是否包含明文密码
+4. Cookie 值是否包含 Base64/URL 编码的敏感信息",,browser_security/checks/cookie_sensitive_check.py,t
+登录密码加密传输检测,数据安全,high,"检测登录请求中的密码是否加密传输。
+
+检测项目:
+1. 密码是否明文传输
+2. 密码是否仅使用 Base64 编码（不安全，可轻易解码）
+3. 密码是否使用加密算法（如 RSA）或安全哈希（如 SHA256）",,browser_security/checks/password_encryption_check.py,t
+密钥管理文件检测,数据安全,high,"检测设备是否正确使用密钥管理文件管理密钥。
+
+检测项目:
+1. /app/config/kaeay.conf 文件必须存在
+2. 文件内容必须是加密的（非明文）
+
+要求: 密钥必须加密存储，不能明文保存",,browser_security/checks/key_file_check.py,t
+web服务支持https请求，且输入http请求能重定向到https,网络安全,medium,支持重定向,"",network_security/check_https_redirect.py,t
+web服务只支持TLS1.2+以上的协议,网络安全,high,"检测目标是否只支持 TLS 1.2 及以上版本的安全协议，并检查是否使用不安全的加密套件。扫描端口：443, 8443, 8081, 9443。检测项：1) 不安全协议（SSLv2/SSLv3/TLSv1.0/TLSv1.1）2) 不安全加密套件（3DES/RC4/DES/NULL/EXPORT）3) 加密强度等级",1. 禁用不安全协议：SSLv2、SSLv3、TLSv1.0、TLSv1.1\n2. 只启用 TLSv1.2 和 TLSv1.3\n3. 禁用不安全加密套件：3DES、RC4、DES、NULL、EXPORT\n4. Nginx 配置示例：\n   ssl_protocols TLSv1.2 TLSv1.3;\n   ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;\n   ssl_prefer_server_ciphers on;,network_security/check_tls_version.py,t
+SSH/Telnet服务默认关闭检测,网络安全,high,"检测设备是否默认开启了 SSH 或 Telnet 服务。
+
+检测端口:
+- 22 (SSH 标准端口)
+- 23 (Telnet 标准端口)
+- 2043 (SSH 备用端口)
+- 2044 (Telnet 备用端口)
+
+要求: 所有 SSH/Telnet 服务端口默认应关闭",,browser_security/checks/ssh_telnet_check.py,t
+服务版本信息泄露检测,网络安全,medium,"使用 nmap -sV 扫描设备开放的服务，检测是否暴露了版本信息。
+
+检测方法:
+- 使用 nmap -sV 进行服务版本探测
+- 分析返回的 banner 信息
+- 检测是否包含版本号（如 x.y.z 格式）
+
+超时时间: 5 分钟
+
+要求: 开放的服务不应返回具体版本号",,browser_security/checks/service_version_check.py,t
+第三方库版本安全检测,网络安全,high,"通过 SSH 连接设备，检测第三方库版本是否满足安全要求。
+
+检测项目:
+- BusyBox >= 1.35
+- OpenSSL >= 3.0
+- curl >= 7.80
+- OpenSSH >= 8.0
+
+SSH 连接会自动尝试密钥库中的多个凭证组合。",,browser_security/checks/library_version_check.py,t
+ADB服务默认关闭检测,网络安全,high,"检测设备是否默认开启了 ADB (Android Debug Bridge) 服务。
+
+检测方法:
+- 通过 Telnet/SSH 连接设备
+- 使用 ps 命令检测进程列表
+- 检查是否有 adbd、adb 等相关进程
+
+要求: ADB 服务应默认关闭",,browser_security/checks/adb_service_check.py,t
+BusyBox危险命令检测,网络安全,high,"检测 BusyBox 是否包含可能被滥用的危险命令。
+
+检测命令:
+- nc/netcat: 网络连接工具，可用于反弹 shell
+- passwd: 修改用户密码
+- telnetd: Telnet 服务端
+- ftpd: FTP 服务端
+- httpd: HTTP 服务端
+
+要求: BusyBox 不应包含上述危险命令",,browser_security/checks/busybox_dangerous_check.py,t
